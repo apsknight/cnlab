@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define SERVER_IP "127.0.0.1"
-#define PORT 8080
+#define SERVER_IP "10.10.68.201"
+#define PORT 8081
 
 void getFile(int sock_fd) {
     char filename[BUFSIZ], reply_msg[BUFSIZ];
@@ -81,7 +81,7 @@ int main(int argc , char **argv) {
     }
 
     server.sin_family = AF_INET;
-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server.sin_addr.s_addr = inet_addr(SERVER_IP);
     server.sin_port = htons(PORT);
 
     // Append zero to rest of the struct.
