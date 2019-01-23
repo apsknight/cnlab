@@ -5,101 +5,44 @@
  */
 
 // Include Headers
-#include <netdb.h> 
-#include <netinet/in.h> 
 #include <stdlib.h> 
 #include <stdio.h>
 #include <string.h> 
 #include <sys/socket.h> 
-#include <sys/types.h> 
+#include <unistd.h>
 
-#define PORT 8081
-#define MAXLEN 50
+#include "utils.h"
 
-void chat(int sock_fd);
+#define PORT 8080
 
 int main(int argc, char** argv) {
-    int sock_fd, client_fd;
-    socklen_t client_size;
-    struct sockaddr_in server, client;
+    // Set stdout as unbuffered.
+    setvbuf(stdout, NULL, _IONBF, 0);
 
-    // Create Socket
-    sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-    
-    if (sock_fd == -1) {
-        perror("Socket API Error!\n");
-        exit(1);
+    // Detect port from command line argument, if provided.
+    int portnum = PORT;
+    if (argc >= 2) {
+        portnum = atoi(argv[1]);
     }
-    else {
-        fprintf(stderr, "Socket succesfully created!\n");
-    }
+    printf("Serving on PORT %d\n", portnum);
 
-    int yes = 1;
-    if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-        perror("setsockopt");
-        exit(1);
-    }
+    // Create Socket and start listening on `portnum`.
+    int sockt = listen_inet_socket(portnum);
 
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = htonl(INADDR_ANY);
-    server.sin_port = htons(PORT);
+    struct sockaddr_in peer_addr;
+    socklen_t peer_addr_len = sizeof(peer_addr);
 
-    // Append zero to rest of the struct.
-    bzero(&server.sin_zero, 8);
+    int peer_sock_fd = accept(sockt, (struct sockaddr *)&peer_addr, &peer_addr_len);
 
-    // Bind socket to server
-    if ( (bind(sock_fd, (struct sockaddr *)&server, sizeof(server))) != 0) {
-        perror("Bind API Error!\n");
-        exit(1);
-    }
-    else {
-        fprintf(stderr, "Socket succesfully binded!\n");
+    if (peer_sock_fd < 0) {
+        printf("Error while accepting connection\n");
     }
 
-    // Listen for incoming connections
-    if ( (listen(sock_fd, 5)) != 0) {
-        perror("Listen API Error!\n");
-        exit(1);
-    }
-    else {
-        fprintf(stderr, "Socket succesfully listening!\n");
-    }
+    // Report connection with peer.
+    report_peer_connected(&peer_addr, peer_addr_len);
 
-    client_size = sizeof(client);
-    client_fd = accept(sock_fd, (struct sockaddr *)&client, &client_size);
+    // Handle Chat with Peer
+    handle_chat(peer_sock_fd);
 
-    if (client_fd == -1) {
-        perror("Accept API Failed!\n");
-        exit(1);
-    }
-    else {
-        printf("Accepted a Client!\n");
-    }
-
-    chat(client_fd);
-
-    close(sock_fd);
-}
-
-// Function to chat with client
-void chat(int sock_fd) {
-    char msg[MAXLEN];
-    int n;
-
-    while(1) {
-        bzero(msg, MAXLEN);
-        read(sock_fd, msg, sizeof(msg));
-        printf("From Client: %s\nTo Client: ", msg);
-
-        n = 0;
-
-        while( (msg[n++] = getchar()) != '\n' );
-
-        write(sock_fd, msg, sizeof(msg));
-
-        if (strcmp("exit", msg) == 0) {
-            printf("Closing Connection..!\n");
-            return;
-        }
-    }
+    close(sockt);
 }
