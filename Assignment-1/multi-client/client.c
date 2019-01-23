@@ -1,72 +1,57 @@
 /**
  * Computer Networks Lab: Assignment-1
- * Server Implementation for message sharing using sockets.
+ * Client Implementation for message sharing using sockets.
+ * Client is same as Single Client Program
  * Author: Aman Pratap Singh
  */
 
 // Include Headers
-#include <netdb.h> 
 #include <stdio.h>
 #include <stdlib.h> 
 #include <string.h> 
+#include <unistd.h>
 #include <sys/socket.h> 
 
-#define PORT 8081
-#define MAXLEN 50
+#include "utils.h"
 
-void chat(int sock_fd);
+#define SERVER_IP "127.0.0.1"
+#define PORT 8080
 
 int main(int argc, char** argv) {
-    int sock_fd, server_fd;
-    struct sockaddr_in server, client;
+    // Set stdout as unbuffered.
+    setvbuf(stdout, NULL, _IONBF, 0);
 
-    // Create Socket
-    sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-    
-    if (sock_fd == -1) {
-        perror("Socket API Error!\n");
-        exit(1);
+    // Detect port and IP from command line argument, if provided.
+    int portnum = PORT;
+    char *IP = SERVER_IP;
+    if (argc >= 2) {
+        portnum = atoi(argv[1]);
+    }
+    if (argc >= 3) {
+        IP = argv[2];
+    }
+    printf("Pinging on PORT %d at %s\n", portnum, IP);
+
+    // Create Socket and start listening on `portnum`.
+    int sockt = connect_inet_socket(portnum, IP);
+    if (sockt < 0) {
+        perror_die("Connection Failed!");
     }
     else {
-        fprintf(stderr, "Socket succesfully created!\n");
+        printf("Connected to the client\n");
     }
 
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server.sin_port = htons(PORT);
-
-    // Append zero to rest of the struct.
-    bzero(&(server.sin_zero), 8);
-
-    // Connect
-    server_fd = connect(sock_fd, (struct sockaddr *)&server, sizeof(server));
-
-    if (server_fd != 0) {
-        perror("Client API Failed!\n");
-        exit(1);
-    }
-    else {
-        printf("Connected to the Server!\n");
+    char sendline[BUFSIZ], recvline[BUFSIZ];
+    while (fgets(sendline, BUFSIZ, stdin) != NULL) {
+        send(sockt, sendline, strlen(sendline), 0);
+                
+        if (recv(sockt, recvline, BUFSIZ,0) == 0){
+            perror("The server terminated prematurely"); 
+            exit(1);
+        }
+        printf("String received from the server: ");
+        fputs(recvline, stdout);
     }
 
-    chat(sock_fd);
-
-    close(sock_fd);
-}
-
-// Function to chat with client
-void chat(int sock_fd) {
-    char msg[MAXLEN];
-    int n;
-
-    while(1) {
-        bzero(msg, sizeof(msg));
-        printf("To Server: ");
-        n = 0;
-        while( (msg[n++] = getchar()) != '\n');
-        write(sock_fd, msg, sizeof(msg));
-        bzero(msg, sizeof(msg));
-        read(sock_fd, msg, sizeof(msg));
-        printf("From Server: %s", msg);
-    }
+    return 0;
 }
